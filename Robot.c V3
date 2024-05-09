@@ -211,9 +211,9 @@ ISR(INT0_vect)
 now1 = milliseconds_now();
 if(now1-now2 >= 100)            //250
    {
-    LR = 1450;
+    ServoLR = 1450;
     now2 = now1;
-    OCR3A = LR;
+    OCR3A = ServoLR;
     _delay_ms(500);
     
    }
