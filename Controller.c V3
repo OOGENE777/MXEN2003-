@@ -143,7 +143,7 @@ int main(void)
                         // the code in this section will implement the result of your message
                         sprintf(serial_string, "received: 1:%4d, 2:%4d 3:%4d 4: %4d 5: %4d\n", recvDataByte1, recvDataByte2,recvDataByte3,recvDataByte4,recvDataByte5);
                         serial0_print_string(serial_string);  // print the received bytes to the USB serial to make sure the right messages are received                
-                        sprintf(lcd_string, "Left:%4dcm Forward:%4dcm Right: %4dcm\n", recvDataByte1, recvDataByte2, recvDataByte3);
+                        sprintf(lcd_string, "Left:%4dcm Forward:%4dcm Right: %4dcm Voltage:%4dV\n", recvDataByte1, recvDataByte2, recvDataByte3,recvDataByte4);
                         lcd_home();
                         lcd_puts(lcd_string);
                     
