@@ -213,7 +213,7 @@ if(now1-now2 >= 100)            //250
    {
     LR = 1450;
     now2 = now1;
-    OCR1A = LR;
+    OCR3A = LR;
     _delay_ms(500);
     
    }
