@@ -19,6 +19,8 @@ volatile int LR = 1450;
 
 static int16_t Voltage = 0;
 
+
+
 int main(void)
 {
     // initialisation
@@ -59,7 +61,7 @@ int main(void)
 
 
     
-    uint8_t sendDataByte1=0, sendDataByte2=0;       // data bytes sent
+    uint8_t sendDataByte1=0, sendDataByte2=0, sendDataByte3, sendDataByte4, sendDataByte5;       // data bytes sent
     uint8_t recvDataByte1=0, recvDataByte2=0, recvDataByte3=0, recvDataByte4=0, recvDataByte5=0;        // data bytes received
     
     uint32_t current_ms=0, last_send_ms=0;          // used for timing the serial send
@@ -72,17 +74,46 @@ int main(void)
     {
         Voltage = adc_read(3)*0.853;
         current_ms = milliseconds_now();
+
+
+
+		volatile int RangeL = adc_read(0)/4;
+		volatile int RangeF = adc_read(1)/4;
+		volatile int RangeR = adc_read(2)/4;
+
+
         //sending section
         if(current_ms-last_send_ms >= 100) //sending rate controlled here one message every 100ms (10Hz)
         {   
             // this is just incrementing variables to send for testing purposes
             // you will put the code here that puts the message you want to send into sendDataByte1 and sendDataByte2
-            sendDataByte1 = 5;
-            sendDataByte2+=2;
+            
+
+            sendDataByte1 = RangeL;
             if (sendDataByte1>253)
-                sendDataByte1 = 0;
+                sendDataByte1 = 253;
+
+            sendDataByte2 = RangeF;
             if (sendDataByte2>253)
-                sendDataByte2 = 0;
+                sendDataByte2 = 253;
+
+            sendDataByte3 = RangeR;
+            if (sendDataByte3>253)
+                sendDataByte3 = 253;
+
+            sendDataByte4 = 0;
+            if (sendDataByte4>253)
+                sendDataByte4 = 253;
+            
+            sendDataByte5 = 0;
+            if (sendDataByte4>253)
+                sendDataByte4 = 253;
+
+
+
+
+
+
             
             // you can add additional bytes to send in the message, 
             //but make sure the receiving code is expecting the right number of bytes
@@ -91,6 +122,10 @@ int main(void)
             serial2_write_byte(0xFF);       //send start byte = 255
             serial2_write_byte(sendDataByte1);  //send first data byte: must be scaled to the range 0-253
             serial2_write_byte(sendDataByte2);  //send second parameter: must be scaled to the range 0-253
+			serial2_write_byte(sendDataByte3);
+			serial2_write_byte(sendDataByte4);	
+			serial2_write_byte(sendDataByte5);
+
             serial2_write_byte(0xFE);       //send stop byte = 254
         }
         //receiving section
@@ -143,7 +178,7 @@ int main(void)
             }
         }   
 
-        joystickLX = adc_read(0);//recvDataByte4;
+        joystickLX = adc_read(11);//recvDataByte4;
         fc = 253 - recvDataByte1;
         rc = recvDataByte2;
         lm = fc + rc - 253;
@@ -188,14 +223,15 @@ int main(void)
         _delay_ms(20);
         
 
-        if ((ServoLR > 699) &(ServoLR < 2301))
+        if ((ServoLR > 700) &(ServoLR < 2300))
             {
         
             OCR3A = ServoLR;
             }
 
 
-        
+        //sprintf(serial_string, "received: Left:%4d, Forward:%4d, Right:%4d,  \n", RangeL,RangeF,RangeR);
+        //serial0_print_string(serial_string);
 
 
 
