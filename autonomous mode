@@ -1,0 +1,139 @@
+void forward_init()
+{
+if (lastturn == 0)	// before first turn
+{
+fc = 200;
+rc = 123;
+}
+if (lastturn == 1)  //left
+{
+	if (RangeR < 70)
+	{
+	fc = 200;
+	rc = 150;	//150
+	}
+	if (RangeR > 70)
+	{
+	fc = 200;
+	rc = 96;	//96
+	}
+}
+if (lastturn == 2) //right
+{
+	if (RangeL < 70)
+	{
+	fc = 200;
+	rc = 96;	
+	}
+	if (RangeL >70)
+	{
+	fc = 200;
+	rc = 150;
+	}
+}
+}
+void turnright_init()
+{
+if (turncounterR < turnsR)
+{
+fc = 123;
+rc = 200;
+turncounterR ++;
+}
+else
+{
+	fc = 123;
+	rc = 123;
+}
+}
+void turnleft_init()
+{
+if (turncounterL < turnsL)
+{
+fc = 123;
+rc = 46;
+turncounterL ++;
+}
+else
+{
+	fc = 123;
+	rc = 123;
+}
+}
+
+
+
+
+// in while loop inside main:
+
+
+
+//	Automation = recvDataByte4;
+        if (Automation == 1)
+        {
+            if ((RangeF <= 80) & (turnR == 0) & (turnL == 0))
+            {
+                forward_init();
+            }
+			
+			else
+			{
+				fc = 123;
+				rc = 123;
+
+			}
+			
+			if ((RangeF >= 90) & (RangeL > RangeR) & (turnR == 0) & (turnL == 0))
+			{
+		
+			turnR = 1;
+
+			}
+
+			if (turnR ==1)
+			{
+
+			turnright_init();
+			if (turncounterR == turnsR)
+			{
+				turnR =0;
+				turncounterR = 0;
+				lastturn = 2;
+				fc = 123;
+				rc = 123;
+			}
+			
+			}
+			if ((RangeF >= 90) & (RangeR > RangeL) & (turnR == 0) & (turnL == 0))
+			{
+		
+			turnL = 1;
+
+			}
+
+        
+			if (turnL == 1)
+			{
+
+			turnleft_init();
+			if (turncounterL == turnsL)
+			{
+				turnL =0;
+				turncounterL = 0;
+				lastturn = 1;
+				fc = 123;
+				rc = 123;
+			}
+			
+			}
+		}
+        else 
+		{
+			fc = 253 - recvDataByte1;
+        	rc = recvDataByte2;
+        }
+
+
+
+
+
