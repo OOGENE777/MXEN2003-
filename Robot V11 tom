@@ -221,7 +221,7 @@ int main(void)
             }
             if ((RangeF >= 90) & (RangeR > RangeL) & (turnR == 0) & (turnL == 0))
             {
-            PanServo_init();
+            //PanServo_init();
             turnL = 1;
             }
             if (turnL == 1)
