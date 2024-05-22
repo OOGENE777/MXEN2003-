@@ -316,6 +316,43 @@ int next_action = 0;
 int last_action = 0;
 
 
+if( (RangeF > obstacleThreshold) & (turnR == 0) & (turnL == 0))
+{next_action = Forward;}
+
+if ((RangeF < obstacleThreshold)&(turnR == 0)&(turnL == 0)){ // object ahead
+    {next_action = Stop;}
+    
+
+if (last_action == Stop)
+{next_action = PanCamera;}
+
+if ((last_action == PanCamera) & (RangeR < obstacleThreshold) & (turnR == 0)&(turnL == 0)){ // turn right
+    turnR = 1;}
+if (turnR ==1)
+    {next_action = RightTurn;}
+    
+if (turncounterR == turnsR)
+    {turnR = 0;
+    turncounterR = 0;
+    next_action = FollowLeftWall;}
+
+if ((last_action == PanCamera) & (RangeL < obstacleThreshold) & (turnR == 0)&(turnL == 0)){ // turn left
+    turnL = 1;}
+
+if (turnL ==1)
+    {next_action = LeftTurn;}
+        
+if (turncounterL == turnsL)
+    {turnL = 0;
+    turncounterL = 0;
+    next_action = FollowRightWall;}  
+
+if ((last_action == PanCamera) & (RangeL > obstacleThreshold) & (RangeR > obstacleThreshold))
+{next_action = Forward;}
+
+
+
+
 // execute action action
 switch (next_action){
     case Stop:
@@ -420,61 +457,6 @@ switch (next_action){
 
 }
 
-
-
-// determine next action
-// if automation just pressed pan camera
-// if no objects in any direction
-// if no object in front, object on both sides
-// if no object in front, object on left
-// if no object in front, object on right
-// if object ahead
-    //decide to turn left or right
-    // decide to reverse or stop  
-// if object on left
-    // adjust right
-    // turn right
-// if object on right
-    // adjust left
-    // turn left
-
-
-
-if( (RangeF > obstacleThreshold) & (turnR == 0)&(turnL == 0))
-{next_action = Forward;}
-
-
-
-if (RangeF < obstacleThreshold){ // object ahead
-    {
-        next_action = Stop;
-    }
-}
-if (last_action == Stop)
-{next_action = PanCamera;}
-
-
-if ((last_action == PanCamera) & (RangeR < obstacleThreshold) & (turnR == 0)&(turnL == 0)){ // turn right
-         turnR = 1;
-            }
-if (turnR ==1)
-        {next_action = RightTurn;}
-    
-if (turncounterR == turnsR)
-            {turnR = 0;
-            turncounterR = 0;
-            next_action = FollowLeftWall;}
-
-if ((last_action == PanCamera) & (RangeL < obstacleThreshold) & (turnR == 0)&(turnL == 0)){ // turn left
-            turnL = 1;}
-
-if (turnL ==1)
-            {next_action = LeftTurn;}
-        
-if (turncounterL == turnsL)
-                {turnL = 0;
-                turncounterL = 0;
-                next_action = FollowRightWall;}  
 
 }
 
