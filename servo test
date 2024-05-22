@@ -342,6 +342,8 @@ int main(void)
                     }
                 }
                 
+                OCR3A = ServoLR;
+
                 }
 
                 if ((joystickLX > 140) & (710 < ServoLR))  // clockwise
@@ -376,18 +378,7 @@ int main(void)
                     }
                 }
 
-
-
-
-
-
         }
-
-
-
-
-
-
 
 
 
