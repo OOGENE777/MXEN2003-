@@ -272,8 +272,8 @@ void get_range(void){
 void servo_control(void){
 
 
-    if (automation == 0)
-    {
+
+    
   if ((joystickLX > 130) && (ServoLR != 700))  // clockwise
   {
     ServoLR -= 20;
@@ -286,7 +286,8 @@ void servo_control(void){
   if (ServoLR < 700){ ServoLR = 700;}
   if (ServoLR > 2300){ServoLR = 2300;}
 
-    }
+    
+
   OCR3A = ServoLR;
 
     }
@@ -321,7 +322,7 @@ if( (RangeF > obstacleThreshold) & (turnR == 0) & (turnL == 0))
 
 if ((RangeF < obstacleThreshold)&(turnR == 0)&(turnL == 0)) // object ahead
     {next_action = Stop;}
-   /*
+   
 if (last_action == Stop)
 {next_action = PanCamera;}
 
@@ -348,7 +349,7 @@ if (turncounterL == turnsL)
 
 if ((last_action == PanCamera) & (RangeL > obstacleThreshold) & (RangeR > obstacleThreshold))
     {next_action = Forward;}
-*/
+
 
 
 
@@ -442,11 +443,12 @@ switch (next_action){
         fc = 123;
         rc = 123;   
         motor_control(fc,rc);   
-       while(ServoLR < 2200){
+       /*while(ServoLR < 2200){
           joystickLX = 10;
           servo_control();
           _delay_ms(20);
-        }
+          
+        }*/
         last_action = PanCamera;
         serial0_print_string("PanCamera");
         break;
