@@ -203,9 +203,10 @@ int main(void)
             else
             {   fc =123;
                 rc=123;
-                PanServo_init();}
+                //PanServo_init();
+                }
             if ((RangeF >= 90) & (RangeL > RangeR) & (turnR == 0) & (turnL == 0))
-            {PanServo_init();
+            {//PanServo_init();
                 turnR = 1;}
             if (turnR ==1)
             {turnright_init();
