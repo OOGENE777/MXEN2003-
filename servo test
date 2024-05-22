@@ -37,8 +37,8 @@ volatile int RangeF = 0;
 volatile int RangeR = 0;
 
 volatile int lastturn = 0;
-volatile int turnsR = 30;
-volatile int turnsL = 30;
+volatile int turnsR = 25;
+volatile int turnsL = 25;
 
 
 
@@ -377,6 +377,8 @@ int main(void)
                         ServoRight = true;
                     }
                 }
+
+                OCR3A = ServoLR;
 
         }
 
