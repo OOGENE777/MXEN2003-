@@ -16,6 +16,7 @@ volatile int Automation = 1;
 volatile int ServoRight = true;
 volatile int ServoLeft = false;
 volatile int StartPan = true;
+volatile int PanFinish = false;
 
 uint32_t now1 = 0;
 uint32_t now2 = 0;
@@ -235,7 +236,7 @@ int main(void)
 
         joystickLX = recvDataByte3;
 	//	Automation = recvDataByte4;
-        if (Automation == 1)
+        if ((Automation == 1))
         {
             if ((RangeF <= 80) & (turnR == 0) & (turnL == 0))
             {forward_init();}
@@ -275,8 +276,10 @@ int main(void)
 		}
         else 
 		{
+
+            if (PanFinish == true){
 			fc = 253 - recvDataByte1;
-        	rc = recvDataByte2;
+        	rc = recvDataByte2;}
         }
 
 
@@ -317,7 +320,7 @@ int main(void)
         if (Automation ==  0){
 
                 if (StartPan == true){
-
+                PanFinish = false;
                 if (ServoRight == true)
                 {
                     ServoLR = ServoLR + 10;
@@ -335,9 +338,10 @@ int main(void)
                         ServoLeft = false;
                         ServoRight = true;
                         StartPan = false;
+                        PanFinish = true;
                     }
                 }
-
+                
                 }
 
                 if ((joystickLX > 140) & (710 < ServoLR))  // clockwise
