@@ -269,23 +269,23 @@ void get_range(void){
 /********************************************
  ********************************************/
 
-void servo_control(void){
-
-
-
-    
-  if ((joystickLX > 130) && (ServoLR != 700))  // clockwise
-  {
-    ServoLR -= 20;
-  }
-  if ((joystickLX < 110) && (ServoLR != 2300)) // anticlockwise
-  {
-    ServoLR += 20;
-  }
-  if (ServoLR < 700){ ServoLR = 700;}
-  if (ServoLR > 2300){ServoLR = 2300;}
-  OCR3A = ServoLR;
-    }
+void servo_control(void)
+{
+    if (automation = 0)
+        {
+            if ((joystickLX > 130) && (ServoLR != 700))  // clockwise
+            {
+                ServoLR -= 20;
+            }
+            if ((joystickLX < 110) && (ServoLR != 2300)) // anticlockwise
+            {
+                ServoLR += 20;
+            }
+            if (ServoLR < 700){ ServoLR = 700;}
+            if (ServoLR > 2300){ServoLR = 2300;}
+        }
+OCR3A = ServoLR;
+}
 
 #define Stop 0
 #define Forward 1
@@ -321,9 +321,12 @@ if ((RangeF < obstacleThreshold)&(turnR == 0)&(turnL == 0)& (last_action != PanC
 if (last_action == Stop)
 {next_action = PanCamera;}
 
+if ((last_action == PanCamera) & (next_action == PanCamera))
+{next_action = Forward;}
+
 
 // right turn
-if ((last_action == PanCamera) & (RangeR > RangeL) & (turnR == 0)&(turnL == 0))
+if ((last_action == PanCamera) & (RangeR > RangeL) & (turnR == 0) & (turnL == 0))
 { 
 turnR =1;}
 if (turnR ==1)
