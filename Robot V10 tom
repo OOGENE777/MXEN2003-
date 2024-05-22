@@ -282,14 +282,9 @@ void servo_control(void){
   {
     ServoLR += 20;
   }
-
   if (ServoLR < 700){ ServoLR = 700;}
   if (ServoLR > 2300){ServoLR = 2300;}
-
-    
-
   OCR3A = ServoLR;
-
     }
 
 #define Stop 0
@@ -320,7 +315,7 @@ int last_action = 0;
 if( (RangeF > obstacleThreshold) & (turnR == 0) & (turnL == 0))
 {next_action = Forward;}
 
-if ((RangeF < obstacleThreshold)&(turnR == 0)&(turnL == 0)) // object ahead
+if ((RangeF < obstacleThreshold)&(turnR == 0)&(turnL == 0)& (last_action != PanCamera)) // object ahead
     {next_action = Stop;}
    
 if (last_action == Stop)
@@ -349,6 +344,18 @@ if (turncounterL == turnsL)
 
 if ((last_action == PanCamera) & (RangeL > obstacleThreshold) & (RangeR > obstacleThreshold))
     {next_action = Forward;}
+
+if (last_action == FollowRightWall)
+    {if (RangeF < obstacleThreshold)
+        {next_action = Stop;}
+    else
+        next_action = FollowRightWall;}
+
+if (last_action == FollowLeftWall)
+    {if (RangeF < obstacleThreshold)
+        {next_action = Stop;}
+    else
+        next_action = FollowLeftWall;}
 
 
 
