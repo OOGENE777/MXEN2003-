@@ -26,8 +26,8 @@ volatile int RangeL = 0;
 volatile int RangeF = 0;
 volatile int RangeR = 0;
 volatile int lastturn = 0;
-volatile int turnsR = 27;
-volatile int turnsL = 27;
+volatile int turnsR = 35;
+volatile int turnsL = 35;
 
 
 static uint8_t sendDataByte1=0, sendDataByte2=0, sendDataByte3=0, sendDataByte4=0,sendDataByte5=0;      // data bytes sent
@@ -201,8 +201,9 @@ int main(void)
             if ((RangeF <= 80) & (turnR == 0) & (turnL == 0))
             {forward_init();}
             else
-            {   PanServo_init();
-                turnR =1;}
+            {   ;
+                turnR =1;
+                PanServo_init();}
             if ((RangeF >= 90) & (RangeL > RangeR) & (turnR == 0) & (turnL == 0))
             {PanServo_init();
                 turnR = 1;}
