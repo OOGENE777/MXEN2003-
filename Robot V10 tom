@@ -446,7 +446,7 @@ if( (RangeF > obstacleThreshold) & (turnR == 0)&(turnL == 0))
 
 
 if (RangeF < obstacleThreshold){ // object ahead
-    if (last_action == Forward){
+    {
         next_action = Stop;
     }
 }
