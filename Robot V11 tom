@@ -201,8 +201,8 @@ int main(void)
             if ((RangeF <= 80) & (turnR == 0) & (turnL == 0))
             {forward_init();}
             else
-            {   ;
-                turnR =1;
+            {   fc =123;
+                rc=123;
                 PanServo_init();}
             if ((RangeF >= 90) & (RangeL > RangeR) & (turnR == 0) & (turnL == 0))
             {PanServo_init();
