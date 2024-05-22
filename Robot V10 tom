@@ -321,18 +321,22 @@ if ((RangeF < obstacleThreshold)&(turnR == 0)&(turnL == 0)& (last_action != PanC
 if (last_action == Stop)
 {next_action = PanCamera;}
 
-if ((last_action == PanCamera) & (RangeR < obstacleThreshold) & (turnR == 0)&(turnL == 0)){ // turn right
-    turnR = 1;}
+
+// right turn
+if ((last_action == PanCamera) & (RangeR > RangeL) & (turnR == 0)&(turnL == 0))
+{ 
+turnR =1;}
 if (turnR ==1)
     {next_action = RightTurn;}
-    
+
 if (turncounterR == turnsR)
     {turnR = 0;
     turncounterR = 0;
     next_action = FollowLeftWall;}
 
-if ((last_action == PanCamera) & (RangeL < obstacleThreshold) & (turnR == 0)&(turnL == 0)){ // turn left
-    turnL = 1;}
+// left turn
+if ((last_action == PanCamera) & (RangeR < RangeL) & (turnR == 0)&(turnL == 0))
+{ turnL = 1;}
 
 if (turnL ==1)
     {next_action = LeftTurn;}
