@@ -1,0 +1,584 @@
+// Microcontroller project to do:
+/********************************************
+1) Connect H-Bridge, Xbee, Power Supply and Motors
+2) ensure you have bi-diractional, variable speed on both motors
+3) Use comunication proticol from Lab 7 to communicate from the controller to the robot to control movement in all directions
+4) Test manual control of robot to ensure controll without delays or interuptions (debug communication protocol)
+5) Wire servo and range sensors (consider range sensor placement and wether to use position or velocity servo)
+6) may need power regulators to supply additional 5V current (eg to servos/sensors)
+7) add servo control byte to controller --> robot message
+8) use servo control byte to set servo position in response to joystick
+9) measure range sensor responses and obtain a calibration function for each sensor
+10) use robot --> controller communication to send sensor values to controller and display calibrated readings on LCD
+11) add autonimy switch signal to controller --> robot message
+12) ensure signal works to switch between autonimous and manual mode
+13) work on autonimous mode algarithm
+
+*********************************************/
+
+//include this .c file's header file
+#include "Robot.h"
+#include "adc.h"
+#include <avr/interrupt.h>
+#include <avr/io.h>
+#include "hd44780.h"
+#include <stdbool.h>
+#include <stdlib.h>
+#include <util/delay.h>
+#include <stdio.h>
+
+//static function prototypes, functions only called in this file
+#define DEBUG 1
+//file scope variables
+static char serial_string[200] = {0};
+//static char serial_string2[200] = {0};
+volatile int16_t rc = 0;
+volatile int16_t fc = 0;  
+volatile int ServoLR = 1450;
+volatile int joystickLX = 0;
+
+volatile uint32_t now1 = 0;
+volatile uint32_t now2 = 0;
+volatile int LR = 1450;
+static bool automation = 0;
+volatile int AveL, AveF, AveR, RunningAveL, RunningAveF, RunningAveR;
+volatile int RangeL, RangeF, RangeR;
+//volatile int ServoLeft = false;
+//volatile int ServoRight = true;
+static int16_t Voltage = 0;
+
+
+
+//static function prototypes, functions only called in this file
+/********************************************
+ ********************************************/
+void send_data(int voltage, int RangeL, int RangeF, int RangeR){
+//sending section
+    uint8_t sendDataByte1, sendDataByte2, sendDataByte3, sendDataByte4;       // data bytes sent      // data bytes received
+    uint32_t current_ms=0, last_send_ms=0;          // used for timing the serial send
+    
+    current_ms = milliseconds_now();
+    
+    if(current_ms-last_send_ms >= 100) //sending rate controlled here one message every 100ms (10Hz)
+    {   
+        // this is just incrementing variables to send for testing purposes
+        // you will put the code here that puts the message you want to send into sendDataByte1 and sendDataByte2
+        sendDataByte1 = RangeL;
+        if (sendDataByte1>253)
+            sendDataByte1 = 253;
+
+        sendDataByte2 = RangeF;
+        if (sendDataByte2>253)
+            sendDataByte2 = 253;
+
+        sendDataByte3 = RangeR;
+        if (sendDataByte3>253)
+            sendDataByte3 = 253;
+
+        sendDataByte4 = voltage;
+        if (sendDataByte4>253)
+            sendDataByte4 = 253;
+        
+
+        // you can add additional bytes to send in the message, 
+        //but make sure the receiving code is expecting the right number of bytes
+        
+        last_send_ms = current_ms;
+        serial2_write_byte(0xFF);       //send start byte = 255
+        serial2_write_byte(sendDataByte1);  //send first data byte: must be scaled to the range 0-253
+        serial2_write_byte(sendDataByte2);  //send second parameter: must be scaled to the range 0-253
+        serial2_write_byte(sendDataByte3);
+        serial2_write_byte(sendDataByte4);	
+        serial2_write_byte(0xFE);       //send stop byte = 254
+    }
+
+
+
+}
+
+
+/********************************************
+ ********************************************/
+
+//using volitile
+void receive_data(){
+  static char serial_string[200] = {0};
+  static uint8_t recvDataByte1=0, recvDataByte2=0, recvDataByte3=0, recvDataByte4=0;         // data bytes received
+  static uint8_t serial_byte_in=0, serial_fsm_state=0;   // used in the serial receive section
+
+
+    //receiving section
+   
+        serial_byte_in = UDR2; //move serial byte into variable
+        
+        switch(serial_fsm_state) //switch by the current state
+        {
+            case 0:
+            //do nothing, if check after switch case will find start byte and set serial_fsm_state to 1
+            break;
+            case 1: //waiting for first parameter
+                recvDataByte1 = serial_byte_in;
+                serial_fsm_state++;
+            break;
+            case 2: //waiting for second parameter
+                recvDataByte2 = serial_byte_in;
+                serial_fsm_state++;
+            break;
+            case 3: //waiting for third parameter
+                recvDataByte3 = serial_byte_in;
+                serial_fsm_state++;
+            break;
+
+            case 4: //waiting for fourth parameter
+                recvDataByte4 = serial_byte_in;
+                serial_fsm_state++;
+            break;
+
+            case 5: //waiting for stop byte
+                if(serial_byte_in == 0xFE) //stop byte
+                {
+                    // now that the stop byte has been received, we can process the whole message
+                    // the code in this section will implement the result of your message
+                    sprintf(serial_string, "received: 1:%4d, 2:%4d, 3:%4d, 4:%4d \n", recvDataByte1, recvDataByte2, recvDataByte3, recvDataByte4);
+                    serial0_print_string(serial_string);  // print the received bytes to the USB serial to make sure the right messages are received                
+                } 
+                // if the stop byte is not received, there is an error, so no commands are implemented
+                serial_fsm_state = 0; //do nothing next time except check for start byte (below)
+            break;
+        }
+        if(serial_byte_in == 0xFF) //if start byte is received, we go back to expecting the first data byte
+        {
+            serial_fsm_state=1;
+        }
+/*
+        if(DEBUG){
+            //manualy set values
+        fc += 5;
+        if (fc>210){ 
+          fc = 0;
+        }
+        rc += 2;
+        if (rc>210){ 
+          rc = 0;
+        }
+        joystickLX += 5;//recvDataByte4;
+        if (joystickLX>230){ 
+          joystickLX = 0;
+        }
+        automation = 0; 
+        }
+        else{*/
+        fc = 256 - recvDataByte1;
+        rc = recvDataByte2;
+        joystickLX = recvDataByte3;
+        automation = recvDataByte4;  
+        //}
+        
+}   
+
+/********************************************
+ ********************************************/
+void motor_control(uint16_t fc, uint16_t rc){
+ int16_t lm = 0;
+ int16_t rm = 0; 
+  lm = (fc-126) + (rc-126);
+  rm = (fc-126) - (rc-126);
+  OCR1A = (int32_t)abs(lm)*2500/126; //lm speed from magnitude of lm
+  OCR1B = (int32_t)abs(rm)*2500/126; //lm speed from magnitude of rm
+
+  if(lm>=0) //if lm is positive
+  {
+  //set direction forwards
+  PORTA |= (1<<PA1);
+  PORTA &= ~(1<<PA0);
+  }
+  else
+  {
+  //set direction reverse
+  PORTA &= ~(1<<PA1);
+  PORTA |= (1<<PA0);
+  }
+  if(rm>=0) //if rm is positive
+  {
+  //set direction forwards
+  PORTA |= (1<<PA3);
+  PORTA &= ~(1<<PA2);
+  }
+  else
+  {
+  //set direction reverse
+  PORTA &= ~(1<<PA3);
+  PORTA |= (1<<PA2);
+  }
+}
+
+
+/********************************************
+ ********************************************/
+void get_range(void){
+    int i;
+    
+    AveL = adc_read(0)/0.2048;
+    AveL = ((1000000/AveL-4)*0.34 -56.6);
+    for(i = 0; i < 5; i++)
+    {
+    RangeL = adc_read(0)/0.2048;
+    RangeL = ((1000000/RangeL)*0.31 -40.6)-4; //gives distance in mm
+    if (RangeL > 800){RangeL = 800;}
+    AveL = (AveL + RangeL)/2 ;
+    }
+    RangeL = AveL;
+    RunningAveL = RunningAveL*0.9 + RangeL*0.1;
+
+    AveF = adc_read(1)/0.2048;
+    AveF = ((1000000/AveF-4)*0.34 -56.6);
+    for(i = 0; i < 5; i++)
+    {
+    RangeF = adc_read(1)/0.2048;
+    RangeF = ((1000000/RangeF)*0.34 -56.6)-4; //gives distance in mm
+    if (RangeF > 800){RangeF = 800;}
+    //RangeF = ((1000000/RangeF-4)*0.34 -56.6);
+    AveF = (AveF + RangeF)/2 ;
+    }
+    RangeF = AveF;
+    RunningAveF = RunningAveF*0.9 + RangeF*0.1;
+
+
+    AveR = adc_read(2)/0.2048;
+    AveR = ((1000000/AveR-4)*0.34 -56.6);
+    for(i = 0; i < 5; i++)
+    {
+    RangeR = adc_read(2)/0.2048;
+    RangeR = ((1000000/RangeR)*0.31 -40.6)-4; //gives distance in mm
+    if (RangeR > 800){RangeR = 800;}
+    AveR = (AveR + RangeR)/2 ;
+    }
+    RangeR = AveR;
+    RunningAveR = RunningAveR*0.9 + RangeR*0.1;
+}
+
+
+/********************************************
+ ********************************************/
+
+void servo_control(void){
+
+
+    if (automation == 0)
+    {
+  if ((joystickLX > 130) && (ServoLR != 700))  // clockwise
+  {
+    ServoLR -= 20;
+  }
+  if ((joystickLX < 110) && (ServoLR != 2300)) // anticlockwise
+  {
+    ServoLR += 20;
+  }
+
+  if (ServoLR < 700){ ServoLR = 700;}
+  if (ServoLR > 2300){ServoLR = 2300;}
+
+    }
+  OCR3A = ServoLR;
+
+    }
+
+#define Stop 0
+#define Forward 1
+#define FollowRightWall 2
+#define FollowLeftWall 3
+#define RightTurn 4
+#define LeftTurn 5
+#define AdjustRight 6
+#define AdjustLeft 7
+#define PanCamera 8
+
+
+
+//autonomous mode pathfinding
+void autonomous_mode(int RangeL, int RangeF, int RangeR){
+
+// Threshold values to determine if an obstacle is near
+int obstacleThreshold = 100; // object distance 10cm
+//reset motor speed
+fc = 123; 
+rc = 123;
+joystickLX = 123;
+int next_action = 0;
+int last_action = 0;
+
+
+// execute action action
+switch (next_action){
+    case Stop:
+        //Stop
+        fc = 123;
+        rc = 123;
+        last_action = Stop;
+        serial0_print_string("Stop");
+        break; 
+    case Forward:
+        //drive forward
+        fc = 123 + 100;
+        rc = 123;
+        last_action = Forward;
+        serial0_print_string("Forward");
+        break; 
+    case FollowRightWall:
+        //follow right wall
+        last_action = FollowRightWall;
+        serial0_print_string("FollowRightWall");
+        break;
+    case FollowLeftWall:
+        //follow left wall
+        last_action = FollowLeftWall;
+        serial0_print_string("FollowLeftWall");
+        break;
+    case RightTurn: 
+        //right turn
+        fc = 123;
+        rc = 123 + 100;
+        
+        last_action = RightTurn;
+        serial0_print_string("RightTurn");
+        break;
+    case LeftTurn:
+        //left turn
+        fc = 123;  
+        rc = 123 -100;
+        last_action = LeftTurn;
+        serial0_print_string("LeftTurn");
+        break;
+    case AdjustRight:
+        //adjust away from left wall
+        rc +=5;
+            if (rc > 200) {
+                rc = 200;
+            }
+            last_action = AdjustRight;
+            serial0_print_string("AdjustRight");
+        break;
+    case AdjustLeft:
+        //adjust away from right wall
+        rc -= 5;
+            if (rc < 30) {
+                rc = 30;
+            }
+            last_action = AdjustLeft;
+            serial0_print_string("AdjustLeft");
+        break;
+    case PanCamera:
+        //pan camera
+        ServoLR = 700;
+        
+        fc = 123;
+        rc = 123;   
+        motor_control(fc,rc);   
+       while(ServoLR < 2200){
+       //   joystickLX = 10;
+         // servo_control();
+          _delay_ms(20);
+        }
+        last_action = PanCamera;
+        serial0_print_string("PanCamera");
+        break;
+
+
+
+
+}
+
+
+
+// determine next action
+// if automation just pressed pan camera
+// if no objects in any direction
+// if no object in front, object on both sides
+// if no object in front, object on left
+// if no object in front, object on right
+// if object ahead
+    //decide to turn left or right
+    // decide to reverse or stop  
+// if object on left
+    // adjust right
+    // turn right
+// if object on right
+    // adjust left
+    // turn left
+
+
+
+if (RangeF >=800 && RangeL >=800 && RangeR >=800){ // no objects in any direction
+    next_action = Stop;
+}
+else if (RangeF >= 500  /*&& RangeL <= 300 && RangeR <= 300*/){ // no object in front, object on both sides
+    next_action = Forward;
+}
+/*
+else if (RangeF >= 500 && RangeL <= 300 && RangeR >= 300){ // no object in front, object on left
+    next_action = FollowLeftWall;
+}
+else if (RangeF >= 500 && RangeL >= 300 && RangeR <= 300){ // no object in front, object on right
+    next_action = FollowRightWall;
+}*/
+if (RangeF < obstacleThreshold){ // object ahead
+    if (last_action == Forward){
+        next_action = Stop;
+    }
+    if (last_action == RightTurn){ // keep turning right
+        next_action = RightTurn;
+    }
+    else if (last_action == LeftTurn){//keep turning left
+        next_action = LeftTurn;
+    }
+    else if (last_action == PanCamera){
+        if (RangeL < RangeR){
+            next_action = RightTurn;
+        }
+        else{
+            next_action = LeftTurn;
+        }
+    }
+    else if (last_action == Stop ){
+        next_action = PanCamera;
+    }
+    else{
+        next_action = Stop;
+    }
+}
+else if (RangeL < obstacleThreshold && last_action != RightTurn){
+        next_action = RightTurn;
+    }
+    
+    
+else if (RangeR < obstacleThreshold && last_action != LeftTurn){
+        next_action = LeftTurn;
+}
+else{
+    next_action = Forward;
+}
+
+
+if (RangeR < AveR){
+    next_action = AdjustRight;
+}
+else if (RangeL < AveL){
+    next_action = AdjustLeft;
+}
+
+
+
+
+
+}
+
+
+
+
+int main(void)
+{
+    // initialisation
+    serial0_init();     // terminal communication with PC
+    serial2_init();     // microcontroller communication to/from another Arduino
+    UCSR2B |= (1 << RXCIE2); // Enable the USART Receive Complete interrupt (USART_RXC) 
+                // or loopback communication to same Arduino
+    adc_init();
+    
+    milliseconds_init();
+        cli();
+        DDRA |= (1<<DDA0)|(1<<DDA1)|(1<<DDA2)|(1<<DDA3); //put A0-A3 into low impedance output mode
+        DDRB = 255;
+        TCCR1A = 0;
+        TCCR1B = 0;
+        TCCR1A |= (1<<COM1B1)|(1<<COM1A1);
+        TCCR1B |= (1<<CS11)|(1<<WGM13); 
+        ICR1 = 2500;   
+        //OCR1A = 1200;   
+      
+        DDRE = 255;
+        TCCR3A = 0;
+        TCCR3B = 0;
+        TCCR3A |= (1<<COM3B1)|(1<<COM3A1);
+        TCCR3B |= (1<<CS31)|(1<<WGM33); //cs12
+        ICR3 = 20000;    //625
+       
+        
+          
+        DDRD = 0;
+        DDRD &= ~(1<<PD0);
+        PORTD |= (1<<PD0);
+        EICRA |= (1<<ISC01);
+        EICRA &= ~(1<<ISC00);
+        EIMSK |= (1<<INT0);
+      sei();
+    ServoLR = 1450;
+    while(1)
+    {
+        
+    
+        Voltage = adc_read(3) * 9.77517;// adc_read(3)* (5.00 / 1023.00) * 2;
+
+        get_range();
+
+        //sprintf(serial_string, "received: L:%4d, F:%4d, R:%4d, m_voltage: %4d  \n", RangeL, RangeF, RangeR, Voltage);
+        //serial0_print_string(serial_string);
+        //send_data(Voltage, RangeL, RangeF, RangeR);
+		
+    
+    if (DEBUG ==1 ){
+            autonomous_mode(RangeL, RangeF, RangeR);
+            //sprintf(serial_string, "fc: %4d, rc:%4d, JLX:%4d, Automation:%4d,  \n", fc, rc, joystickLX, automation);
+            //serial0_print_string(serial_string);
+            //joystickLX = 100;
+            
+            //OCR3A = ServoLR;
+           // _delay_ms(100);
+            
+           // fc = 200;
+            //rc = 123;
+            sprintf(serial_string, "fc: %4d, rc:%4d, JLX:%4d, Automation:%4d,  \n", fc, rc, joystickLX, ServoLR);
+            serial0_print_string(serial_string);
+            motor_control(fc,rc);
+           // servo_control();
+            
+            _delay_ms(10);
+        }
+      else{
+        send_data(Voltage, RangeL, RangeF, RangeR);
+        if (automation){
+            
+
+            autonomous_mode(RangeL, RangeF, RangeR);
+            //motor_control(fc, rc);
+        }
+        
+        servo_control();
+        motor_control(fc,rc);
+
+        
+        
+        }
+
+    }
+    return(1);
+} //end main
+ISR(TIMER3_CAPT_vect)
+{
+
+}
+
+ISR(INT0_vect)
+{
+now1 = milliseconds_now();
+if(now1-now2 >= 100)            //250
+   {
+    ServoLR = 1450;
+    now2 = now1;
+    OCR3A = ServoLR;
+    _delay_ms(500);
+   }
+}
+ISR(USART2_RX_vect)
+{
+   // receive_data();
+}
