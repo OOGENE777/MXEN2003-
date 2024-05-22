@@ -1,0 +1,429 @@
+
+//include this .c file's header file
+#include "Robot.h"
+//static function prototypes, functions only called in this file
+//file scope variables
+static char serial_string[200] = {0};
+//static char serial_string2[200] = {0};
+static int16_t lm = 0;
+static int16_t rm = 0;
+static int16_t rc = 123;
+static int16_t fc = 123;  
+
+volatile int ServoLR = 1450;
+volatile int joystickLX = 0;
+volatile int Automation = 1; 
+
+uint32_t now1 = 0;
+uint32_t now2 = 0;
+volatile int LR = 1450;
+
+static int16_t Voltage = 0;
+
+volatile uint32_t ms = 0;
+volatile uint32_t seconds = 0;
+
+volatile int turncounterR = 0;
+volatile int turncounterL = 0;
+volatile int turnR = 0;
+volatile int turnL = 0;
+
+volatile int RangeL = 0;
+volatile int RangeF = 0;
+volatile int RangeR = 0;
+
+volatile int lastturn = 0;
+volatile int turnsR = 60;
+volatile int turnsL = 60;
+
+
+
+/*
+void timer2_init() {
+    cli();
+	ms = 0;
+	seconds =0;
+	// Set Timer 2 for CTC mode
+    TCCR2A = 0; // Clear TCCR2A register
+    TCCR2B = 0; // Clear TCCR2B register
+    TCNT2 = 0;  // Initialize counter value to 0
+    OCR2A = 249; // Set compare match register for 1ms at 16MHz clock with prescaler of 64
+    TCCR2A |= (1 << WGM21); // Set WGM mode to CTC
+    // Set prescaler to 64
+    TCCR2B |= (1 << CS22); // Set CS22 bit for 64 prescaler
+    // Enable Timer 2 Output Compare A Match Interrupt
+    TIMSK2 |= (1 << OCIE2A);
+    // Enable global interrupts
+    sei();
+}
+*/
+
+static uint8_t sendDataByte1=0, sendDataByte2=0, sendDataByte3=0, sendDataByte4=0,sendDataByte5=0;      // data bytes sent
+static uint8_t recvDataByte1=0, recvDataByte2=0, recvDataByte3=0, recvDataByte4=0,recvDataByte5=0;        // data bytes received
+static uint32_t current_ms=0, last_send_ms=0;          // used for timing the serial send
+uint8_t serial_byte_in=0, serial_fsm_state=0; 
+
+
+void forward_init()
+{
+if (lastturn == 0)	// before first turn
+{
+fc = 200;
+rc = 123;
+
+if (RangeR > 70)
+	{
+	fc = 200;
+	rc = 96;	//150
+	}
+if (RangeL > 70)
+	{
+	fc = 200;
+	rc = 150;	//96
+	}
+
+}
+if (lastturn == 1)  //left
+{
+	if (RangeR < 70)
+	{
+	fc = 200;
+	rc = 150;	//150
+	}
+	if (RangeR > 70)
+	{
+	fc = 200;
+	rc = 96;	//96
+	}
+}
+if (lastturn == 2) //right
+{
+	if (RangeL < 70)
+	{
+	fc = 200;
+	rc = 96;	
+	}
+	if (RangeL >70)
+	{
+	fc = 200;
+	rc = 150;
+	}
+}
+}
+void turnright_init()
+{
+if (turncounterR < turnsR)
+{
+fc = 123;
+rc = 200;
+turncounterR ++;
+}
+else
+{
+	fc = 123;
+	rc = 123;
+}
+}
+void turnleft_init()
+{
+if (turncounterL < turnsL)
+{
+fc = 123;
+rc = 46;
+turncounterL ++;
+}
+else
+{
+	fc = 123;
+	rc = 123;
+}
+}
+// Timer 2 Output Compare A Match ISR
+ISR(TIMER2_COMPA_vect) {
+    milliseconds++; // Increment milliseconds counter
+    if (milliseconds >= 1000) {
+        milliseconds = 0; // Reset milliseconds counter
+        seconds++;
+}
+}
+int main(void)
+{
+    // initialisation
+    serial0_init();     // terminal communication with PC
+    serial2_init();     // microcontroller communication to/from another Arduino 
+
+    UCSR2B |= (1 << RXCIE2); // Enable the USART Receive Complete interrupt (USART_RXC)
+                
+    adc_init();
+    //timer2_init();
+
+    milliseconds_init();
+        cli();
+        DDRA |= (1<<DDA0)|(1<<DDA1)|(1<<DDA2)|(1<<DDA3); //put A0-A3 into low impedance output mode
+        DDRB = 255;
+        TCCR1A = 0;
+        TCCR1B = 0;
+        TCCR1A |= (1<<COM1B1)|(1<<COM1A1);
+        TCCR1B |= (1<<CS11)|(1<<WGM13); 
+        ICR1 = 2500;   
+        //OCR1A = 1200;   
+        sei();
+        cli();
+        DDRE = 255;
+        TCCR3A = 0;
+        TCCR3B = 0;
+        TCCR3A |= (1<<COM3A1)|(1<<WGM31);
+        TCCR3B |= (1<<CS31)|(1<<WGM33); //cs12
+        ICR3 = 20000;    //625
+        sei();
+        
+      // used in the serial receive section
+    while(1)
+    {
+        Voltage = adc_read(3) * 0.00977517;// adc_read(3)* (5.00 / 1023.00) * 2;
+        current_ms = milliseconds_now();
+        RangeL = adc_read(0)/4;
+        RangeF = adc_read(1)/4;
+        RangeR = adc_read(2)/4;
+       
+		
+        if (RangeL < 60 )
+		{RangeL = 60;}
+		if (RangeF < 60 )
+		{RangeF = 60;}
+		if (RangeR < 60 )
+		{RangeR = 60;}
+        
+        //sending section
+        if(current_ms-last_send_ms >= 100) //sending rate controlled here one message every 100ms (10Hz)
+        {   
+            // this is just incrementing variables to send for testing purposes
+            // you will put the code here that puts the message you want to send into sendDataByte1 and sendDataByte2
+            
+            sendDataByte1 = RangeL;
+            if (sendDataByte1>253)
+                {sendDataByte1 = 253;}
+            sendDataByte2 = RangeF;
+            if (sendDataByte2>253)
+                {sendDataByte2 = 253;}
+            sendDataByte3 = RangeR;
+            if (sendDataByte3>253)
+                {sendDataByte3 = 253;}
+            sendDataByte4 = Voltage;
+            if (sendDataByte4>253)
+                {sendDataByte4 = 253;}
+			sendDataByte5 = 0;
+            if (sendDataByte4>253)
+                {sendDataByte4 = 253;}
+				
+
+
+            last_send_ms = current_ms;
+            serial2_write_byte(0xFF);       //send start byte = 255
+            serial2_write_byte(sendDataByte1);  //send first data byte: must be scaled to the range 0-253
+            serial2_write_byte(sendDataByte2);  //send second parameter: must be scaled to the range 0-253
+            serial2_write_byte(sendDataByte3);  //send third parameter: must be scaled to the range 0-253
+            serial2_write_byte(sendDataByte4);  //send fourth parameter: must be scaled to the range 0-253
+			serial2_write_byte(sendDataByte5);
+            serial2_write_byte(0xFE);       //send stop byte = 254
+        }
+       
+        
+
+        joystickLX = recvDataByte3;
+	//	Automation = recvDataByte4;
+        if (Automation == 1)
+        {
+            if ((RangeF <= 80) & (turnR == 0) & (turnL == 0))
+            {
+                forward_init();
+
+            
+            }
+		
+			else
+			{
+				//fc = 123;
+				//rc = 123;
+
+                turnR =1;
+
+			}
+			
+			if ((RangeF >= 90) & (RangeL > RangeR) & (turnR == 0) & (turnL == 0))
+			{
+		
+			turnR = 1;
+
+			}
+
+			if (turnR ==1)
+			{
+
+			turnright_init();
+			if (turncounterR == turnsR)
+			{
+				turnR =0;
+				turncounterR = 0;
+				lastturn = 2;
+				fc = 123;
+				rc = 123;
+			}
+			
+			}
+			if ((RangeF >= 90) & (RangeR > RangeL) & (turnR == 0) & (turnL == 0))
+			{
+		
+			turnL = 1;
+
+			}
+
+			if (turnL == 1)
+			{
+
+			turnleft_init();
+			if (turncounterL == turnsL)
+			{
+				turnL =0;
+				turncounterL = 0;
+				lastturn = 1;
+				fc = 123;
+				rc = 123;
+			}
+			}
+		}
+        else 
+		{
+			fc = 253 - recvDataByte1;
+        	rc = recvDataByte2;
+        }
+
+
+        
+
+        lm = fc + rc - 253;
+        rm = fc - rc;	
+		//lm = (fc-123) + (rc - 123);
+    	 // rm = (fc-123) - (rc - 123);
+        OCR1A = (int32_t)abs(lm)*2500/126; //lm speed from magnitude of lm
+        OCR1B = (int32_t)abs(rm)*2500/126; //lm speed from magnitude of rm
+
+            if(lm>=0) //if lm is positive
+            {
+            //set direction forwards
+            PORTA |= (1<<PA1);
+            PORTA &= ~(1<<PA0);
+            }
+            else
+            {
+            //set direction reverse
+            PORTA &= ~(1<<PA1);
+            PORTA |= (1<<PA0);
+            }
+            if(rm>=0) //if rm is positive
+            {
+            //set direction forwards
+            PORTA |= (1<<PA3);
+            PORTA &= ~(1<<PA2);
+            }
+            else
+            {
+            //set direction reverse
+            PORTA &= ~(1<<PA3);
+            PORTA |= (1<<PA2);
+            }
+        
+   
+        if ((joystickLX > 140) & (710 < ServoLR))  // clockwise
+          {ServoLR = ServoLR - 20;}
+        if ((joystickLX < 110) & (ServoLR <  2290)) // anticlockwise
+          {ServoLR = ServoLR + 20;}
+        _delay_ms(20);
+        
+        if ((ServoLR > 700) &(ServoLR < 2300))
+            {
+        
+            OCR3A = ServoLR;
+            }
+
+        sprintf(serial_string, "received: V: %4d l:%4d r: %4d \n",Voltage,RangeL,RangeR);
+        serial0_print_string(serial_string);
+		//sprintf(serial_string, "received: 1:%4d, 2:%4d, 3:%4d, 4:%4d  \n", recvDataByte1, recvDataByte2,recvDataByte3,recvDataByte4);
+       // serial0_print_string(serial_string); 
+
+
+
+
+    }
+    return(1);
+} //end main
+ISR(TIMER3_CAPT_vect)
+{
+}
+
+ISR(INT0_vect)
+{
+now1 = milliseconds_now();
+if(now1-now2 >= 100)            //250
+   {
+    ServoLR = 1450;
+    now2 = now1;
+    OCR3A = ServoLR;
+
+   }
+
+}
+
+ISR(USART2_RX_vect)
+{
+ //receiving section
+        if(UCSR2A&(1<<RXC2)) //if new serial byte has arrived: refer to page 238 of datasheet. Single bit flag indicates a new byte is available
+        {
+
+
+            serial_byte_in = UDR2; //move serial byte into variable
+            switch(serial_fsm_state) //switch by the current state
+            {
+                case 0:
+                //do nothing, if check after switch case will find start byte and set serial_fsm_state to 1
+                break;
+                case 1: //waiting for first parameter
+                    recvDataByte1 = serial_byte_in;
+                    serial_fsm_state++;
+                break;
+                case 2: //waiting for second parameter
+                    recvDataByte2 = serial_byte_in;
+                    serial_fsm_state++;
+                break;
+                case 3: //waiting for third parameter
+                    recvDataByte3 = serial_byte_in;
+                    serial_fsm_state++;
+                break;
+                case 4: //waiting for fourth parameter
+                    recvDataByte4 = serial_byte_in;
+                    serial_fsm_state++;
+                break;
+				case 5: //waiting for fourth parameter
+                    recvDataByte5 = serial_byte_in;
+                    serial_fsm_state++;
+                break;
+				
+                case 6: //waiting for stop byte
+                    if(serial_byte_in == 0xFE) //stop byte
+                    {
+                        // now that the stop byte has been received, we can process the whole message
+                        // the code in this section will implement the result of your message
+                       // sprintf(serial_string, "received: 1:%4d, 2:%4d, 3:%4d, 4:%4d fc:%4d rc:%4d  \n", recvDataByte1, recvDataByte2,recvDataByte3,recvDataByte4,fc,rc);
+                       // serial0_print_string(serial_string);  // print the received bytes to the USB serial to make sure the right messages are received                
+                    } 
+                    // if the stop byte is not received, there is an error, so no commands are implemented
+                    serial_fsm_state = 0; //do nothing next time except check for start byte (below)
+                break;
+            }
+            if(serial_byte_in == 0xFF) //if start byte is received, we go back to expecting the first data byte
+            {
+                serial_fsm_state=1;
+            }
+
+}
+}
