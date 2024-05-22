@@ -321,8 +321,7 @@ if( (RangeF > obstacleThreshold) & (turnR == 0) & (turnL == 0))
 
 if ((RangeF < obstacleThreshold)&(turnR == 0)&(turnL == 0)) // object ahead
     {next_action = Stop;}
-    
-
+   /*
 if (last_action == Stop)
 {next_action = PanCamera;}
 
@@ -348,8 +347,8 @@ if (turncounterL == turnsL)
     next_action = FollowRightWall;}  
 
 if ((last_action == PanCamera) & (RangeL > obstacleThreshold) & (RangeR > obstacleThreshold))
-{next_action = Forward;}
-
+    {next_action = Forward;}
+*/
 
 
 
@@ -364,7 +363,7 @@ switch (next_action){
         break; 
     case Forward:
         //drive forward
-        fc = 123 + 100;
+        fc = 200;
         rc = 123;
         last_action = Forward;
         serial0_print_string("Forward");
