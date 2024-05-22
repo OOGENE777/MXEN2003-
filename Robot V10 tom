@@ -319,7 +319,7 @@ int last_action = 0;
 if( (RangeF > obstacleThreshold) & (turnR == 0) & (turnL == 0))
 {next_action = Forward;}
 
-if ((RangeF < obstacleThreshold)&(turnR == 0)&(turnL == 0)){ // object ahead
+if ((RangeF < obstacleThreshold)&(turnR == 0)&(turnL == 0)) // object ahead
     {next_action = Stop;}
     
 
