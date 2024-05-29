@@ -525,33 +525,24 @@ UCSR2B |= (1 << RXCIE2); // Enable the USART Receive Complete interrupt (USART_R
 adc_init();
 
 milliseconds_init();
-cli();
-DDRA |= (1<<DDA0)|(1<<DDA1)|(1<<DDA2)|(1<<DDA3); //put A0-A3 into low impedance output mode
-DDRB = 255;
-TCCR1A = 0;
-TCCR1B = 0;
-TCCR1A |= (1<<COM1B1)|(1<<COM1A1);
-TCCR1B |= (1<<CS11)|(1<<WGM13); 
-ICR1 = 2500;   
-//OCR1A = 1200;   
 
-DDRE = 255;
-TCCR3A = 0;
-TCCR3B = 0;
-TCCR3A |= (1<<COM3B1)|(1<<COM3A1);
-TCCR3B |= (1<<CS31)|(1<<WGM33); //cs12
-ICR3 = 20000;    //625
+cli();                                // Disable interrupts globally
+DDRA |= (1<<DDA0)|(1<<DDA1)|(1<<DDA2)|(1<<DDA3); // Set pins A0 to A3 as output
+DDRB = 255;                           // Set all pins on port B as outputs
+TCCR1A = 0;                           // Clear timer 1 control regester A
+TCCR1B = 0;                           // Clear timer 1 control register B
+TCCR1A |= (1<<COM1B1)|(1<<COM1A1);    // Set OC1A and OC1B to non-inverting mode
+TCCR1B |= (1<<CS11)|(1<<WGM13);       // set prescalor to 8 and enable phase and frequency correct pwm mode
+ICR1 = 2500;                          // Set top value for timer 1 to 2500 
+
+DDRE = 255;                           // Set all pins on port E to ouput
+TCCR3A = 0;                           // Clear timer 3 control regester A
+TCCR3A |= (1<<COM3A1);                // Set OC3A to non-inverting mode
+TCCR3A |= (1<<CS31)|(1<<WGM33);       // Set prescalor to 8 and enabel phase and frequency correct pwm mode
+ICR3 = 20000;                         // Set to value to 20000
+sei();                                // Enable interupts globally
 
 
-  
-DDRD = 0;
-DDRD &= ~(1<<PD0);
-PORTD |= (1<<PD0);
-EICRA |= (1<<ISC01);
-EICRA &= ~(1<<ISC00);
-EIMSK |= (1<<INT0);
-sei();
-ServoLR = 1450;
 while(1)
 {
 
@@ -613,17 +604,6 @@ ISR(TIMER3_CAPT_vect)
 
 }
 
-ISR(INT0_vect)
-{
-now1 = milliseconds_now();
-if(now1-now2 >= 100)            //250
-   {
-    ServoLR = 1450;
-    now2 = now1;
-    OCR3A = ServoLR;
-    _delay_ms(500);
-   }
-}
 ISR(USART2_RX_vect)
 {
     receive_data();
